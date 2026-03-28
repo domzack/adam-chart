@@ -67,6 +67,35 @@ Ao trocar para, por exemplo, o timeframe de **15m**, o sistema:
 
 ---
 
+## 📚 Guia do DataCube
+
+O `DataCube` é o cérebro por trás da reatividade do gráfico. Ele gerencia os dados de forma que qualquer alteração reflita instantaneamente na interface sem a necessidade de recarregar a página.
+
+### Principais Métodos Utilizados:
+
+1.  **`this.chart.update(msg)`**: 
+    - **Uso**: Recebe um objeto `{ candle: [t, o, h, l, c, v] }`.
+    - **Vantagem**: Tenta atualizar apenas o último candle ou adicionar um novo de forma performática.
+    - **Local**: Veja no `onmessage` dentro de `public/main.js`.
+
+2.  **`this.chart.set(path, data)`**:
+    - **Uso**: `this.chart.set('chart.data', novosDadosArray)`.
+    - **Vantagem**: Redefine completamente uma ramificação do banco de dados (útil para trocar de timeframe ou carregar histórico pesado).
+    - **Local**: Usado na função `changeTimeframe` em `public/main.js`.
+
+3.  **`this.chart.add(side, overlay)`**:
+    - **Uso**: `this.chart.add('onchart', { type: 'Spline', name: 'EMA', data: [] })`.
+    - **Vantagem**: Permite adicionar dinamicamente indicadores (EMA, Bollinger Bands, etc.) sem afetar os dados principais das velas.
+    - **Local**: Ativado no evento `mounted()` do Vue.
+
+### Exemplo de manipulação manual:
+Se você quiser injetar um ponto isolado no gráfico via console do navegador, pode fazer:
+```javascript
+app.chart.update({ candle: [Date.now(), 5000, 5010, 4990, 5005, 100] })
+```
+
+---
+
 ## 📦 Publicando no GitHub
 
 Para subir este projeto para o seu GitHub, use os comandos abaixo:
