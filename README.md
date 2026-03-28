@@ -67,6 +67,43 @@ Ao trocar para, por exemplo, o timeframe de **15m**, o sistema:
 
 ---
 
+## 🎨 Customização via HTML (Props)
+
+Você pode customizar o comportamento e a aparência do gráfico diretamente no componente `<trading-vue>` no arquivo `index.html`.
+
+### Customização Visual (Cores)
+| Prop | Tipo | Descrição | Valor Padrão |
+| :--- | :--- | :--- | :--- |
+| `:title-txt` | String | Texto exibido no canto superior esquerdo. | `'TradingVue.js'` |
+| `:color-back` | String | Cor de fundo do gráfico. | `'#121826'` |
+| `:color-grid` | String | Cor das linhas de grade. | `'#2f3240'` |
+| `:color-text` | String | Cor dos textos das escalas. | `'#dedddd'` |
+| `:color-title` | String | Cor do texto do título. | `'#42b883'` |
+| `:color-candle-up`| String | Cor das velas de alta (corpo). | `'#23a776'` |
+| `:color-candle-dw`| String | Cor das velas de baixa (corpo). | `'#e54150'` |
+| `:color-cross` | String | Cor da mira (crosshair). | `'#8091a0'` |
+
+### Funcionalidades e Layout
+| Prop | Tipo | Descrição | Valor Padrão |
+| :--- | :--- | :--- | :--- |
+| `:width` | Number | Largura do gráfico em pixels. | `800` |
+| `:height` | Number | Altura do gráfico em pixels. | `421` |
+| `:toolbar` | Boolean | Exibe a barra de ferramentas nativa à esquerda. | `false` |
+| `:legend-buttons` | Array | Botões de controle na legenda. | `['display', 'settings', 'remove']` |
+| `:font` | String | Família da fonte utilizada. | `'Arial...'` |
+
+Exemplo de uso:
+```html
+<trading-vue 
+    :data="chart"
+    :title-txt="'Adam Pro'"
+    :color-back="'#000'"
+    :toolbar="true">
+</trading-vue>
+```
+
+---
+
 ## 📚 Guia do DataCube
 
 O `DataCube` é o cérebro por trás da reatividade do gráfico. Ele gerencia os dados de forma que qualquer alteração reflita instantaneamente na interface sem a necessidade de recarregar a página.
