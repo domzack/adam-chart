@@ -96,24 +96,7 @@ app.chart.update({ candle: [Date.now(), 5000, 5010, 4990, 5005, 100] })
 
 ---
 
-## 📦 Publicando no GitHub
-
-Para subir este projeto para o seu GitHub, use os comandos abaixo:
-
-1.  Crie um novo repositório no seu GitHub.
-2.  No seu computador (dentro da pasta `adam-chart`):
-    ```bash
-    git init
-    git add .
-    git commit -m "Initial commit: Organized Real-Time Trading Chart"
-    git branch -M main
-    git remote add origin https://github.com/SEU_USUARIO/NOME_REPO.git
-    git push -u origin main
-    ```
-
----
-
-## 💎 Créditos
+##  Créditos
 
 Este projeto foi construído utilizando as seguintes tecnologias de código aberto:
 
