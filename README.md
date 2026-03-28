@@ -91,6 +91,7 @@ Você pode customizar o comportamento e a aparência do gráfico diretamente no 
 | `:toolbar` | Boolean | Exibe a barra de ferramentas nativa à esquerda. | `false` |
 | `:legend-buttons` | Array | Botões de controle na legenda. | `['display', 'settings', 'remove']` |
 | `:font` | String | Família da fonte utilizada. | `'Arial...'` |
+| `:index-based` | Boolean | Se `true`, remove lacunas temporais (fim de semana). | `false` |
 
 Exemplo de uso:
 ```html

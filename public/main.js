@@ -9,6 +9,7 @@ new Vue({
             onchart: [], offchart: []
         }),
         ohlcvBase: [], // Dados originais de 1m
+        indexBased: false,
 
         currentTimeframe: 1,
         availableTfs: [1, 5, 15, 60, 240, 1440],
