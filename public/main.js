@@ -5,7 +5,7 @@ new Vue({
     el: '#app',
     data: {
         chart: new DataCube({
-            chart: { type: 'Candles', data: [] },
+            chart: { type: 'Candles', tf: '1m', data: [] },
             onchart: [], offchart: []
         }),
         ohlcvBase: [], // Dados originais de 1m
@@ -67,6 +67,8 @@ new Vue({
         },
         changeTimeframe(tf) {
             this.currentTimeframe = tf
+            const label = this.tfLabel(tf)
+            this.chart.set('chart.tf', label) // Sincroniza o TF para o modo IB
             const aggregated = this.aggregateCandles(this.ohlcvBase, tf)
             this.chart.set('chart.data', aggregated)
         },
