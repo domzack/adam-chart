@@ -1,5 +1,7 @@
 # 📊 Adam Real-Time Chart (TradingVue + WebSocket)
 
+![Adam Chart Preview](public/adam-chart.png)
+
 Uma solução completa e organizada para visualização de dados financeiros (OHLCV) em tempo real. O projeto utiliza **Vue.js** com a poderosa biblioteca **TradingVueLib** e um servidor **WebSocket em Python** para streaming de dados históricos de alta frequência.
 
 ---
