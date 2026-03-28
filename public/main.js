@@ -35,21 +35,34 @@ new Vue({
             const msg = JSON.parse(e.data)
             if (!msg.candle) return
 
-            // Salva no bando de dados principal (sempre 1m)
             this.ohlcvBase.push(msg.candle)
 
-            // Se estiver no timeframe 1m, usa update incremental para suavidade
             if (this.currentTimeframe === 1) {
-                try {
-                    this.chart.update(msg)
-                } catch (err) {
+                // Para os primeiros 10 pontos, usamos .set() para garantir sincronia do Worker
+                // Depois usamos .update() para performance
+                if (this.ohlcvBase.length < 10) {
                     this.chart.set('chart.data', this.ohlcvBase)
+                } else {
+                    try {
+                        this.chart.update(msg)
+                    } catch (err) {
+                        this.chart.set('chart.data', this.ohlcvBase)
+                    }
                 }
             } else {
-                // Se estiver em outro timeframe, re-agrega e atualiza
                 const aggregated = this.aggregateCandles(this.ohlcvBase, this.currentTimeframe)
                 this.chart.set('chart.data', aggregated)
             }
+        }
+    },
+    watch: {
+        // Ao trocar o modo de Gaps, forçamos um refresh completo dos dados
+        // Isso evita o erro 'unshift' no Internal Worker do TradingVue
+        indexBased() {
+            const data = this.currentTimeframe === 1
+                ? this.ohlcvBase
+                : this.aggregateCandles(this.ohlcvBase, this.currentTimeframe)
+            this.chart.set('chart.data', data)
         }
     },
     beforeDestroy() {
