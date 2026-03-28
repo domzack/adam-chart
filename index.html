@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>TradingVue - Gráfico OHLCV + WebSocket</title>
+    <title>Adam Chart - Gráfico OHLCV + WebSocket</title>
     <link rel="stylesheet" href="public/style.css">
     <script src="public/vue.js"></script>
     <script src="public/trading-vue.js"></script>
@@ -18,7 +18,8 @@
             </button>
         </div>
         <div class="chart-container">
-            <trading-vue :data="chart" :width="width" :height="height" :color-back="'#111'"></trading-vue>
+            <trading-vue :data="chart" :width="width" :height="height" :color-back="'#111'"
+                :title-txt="'Adam-chart'"></trading-vue>
         </div>
     </div>
 
