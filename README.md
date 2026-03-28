@@ -112,4 +112,15 @@ Para subir este projeto para o seu GitHub, use os comandos abaixo:
     ```
 
 ---
+
+## 💎 Créditos
+
+Este projeto foi construído utilizando as seguintes tecnologias de código aberto:
+
+- **[trading-vue-js](https://github.com/tvjsx/trading-vue-js)**: O motor de visualização de alta performance para trading.
+- **[Vue.js](https://vuejs.org/)**: Framework reativo para a interface.
+- **[Websockets](https://github.com/python-websockets/websockets)**: Biblioteca Python para comunicação em tempo real.
+
+---
+
 Desenvolvido com carinho para o projeto **Adam-Vue**.
