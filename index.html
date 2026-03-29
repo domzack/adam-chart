@@ -4,9 +4,11 @@
 <head>
     <meta charset="UTF-8">
     <title>Adam Chart - Gráfico OHLCV + WebSocket</title>
-    <link rel="stylesheet" href="public/style.css">
+    <link rel="stylesheet" href="public/style.css?v=2">
     <script src="public/vue.js"></script>
     <script src="public/trading-vue.js"></script>
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
 </head>
 
 <body>
@@ -17,17 +19,20 @@
                 {{ tfLabel(tf) }}
             </button>
             <div style="flex:1"></div>
+            <button @click="goToEnd()" title="Ir para o candle mais recente">
+                ⏩ Fim
+            </button>
             <button :class="{active: indexBased}" @click="indexBased = !indexBased">
                 {{ indexBased ? 'Gaps: OFF' : 'Gaps: ON' }}
             </button>
         </div>
         <div class="chart-container">
-            <trading-vue :data="chart" :width="width" :height="height" :color-back="'#111'" :title-txt="'Adam-Chart'"
-                :index-based="indexBased"></trading-vue>
+            <trading-vue ref="tvjs" :data="chart" :width="width" :height="height" :color-back="'#111'"
+                :title-txt="'Adam-Chart'" :index-based="indexBased"></trading-vue>
         </div>
     </div>
 
-    <script src="public/main.js"></script>
+    <script src="public/main.js?v=5"></script>
 </body>
 
 </html>

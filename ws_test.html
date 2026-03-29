@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>WS Test</title>
+</head>
+
+<body>
+    <h2>WebSocket Diagnostic</h2>
+    <pre id="log"></pre>
+    <script>
+        function log(msg) {
+            document.getElementById('log').textContent += new Date().toISOString() + ' | ' + msg + '\n';
+            console.log(msg);
+        }
+
+        log('Criando WebSocket para ws://127.0.0.1:8765...');
+
+        try {
+            const ws = new WebSocket('ws://127.0.0.1:8765');
+
+            ws.onopen = function () {
+                log('✅ ONOPEN disparou! Conexão estabelecida.');
+                log('readyState: ' + ws.readyState);
+                log('protocol: ' + ws.protocol);
+            };
+
+            ws.onmessage = function (e) {
+                const preview = typeof e.data === 'string' ? e.data.substring(0, 150) : '[binary]';
+                log('📩 ONMESSAGE: ' + preview + '...');
+            };
+
+            ws.onerror = function (e) {
+                log('❌ ONERROR: ' + JSON.stringify(e));
+            };
+
+            ws.onclose = function (e) {
+                log('🔌 ONCLOSE: code=' + e.code + ' reason=' + e.reason + ' wasClean=' + e.wasClean);
+            };
+
+            log('WebSocket criado. readyState: ' + ws.readyState + ' (0=CONNECTING)');
+        } catch (err) {
+            log('💥 Exception: ' + err.message);
+        }
+    </script>
+</body>
+
+</html>
