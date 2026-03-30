@@ -1,49 +1,89 @@
-// No local do user (public/trading-vue.js), o objeto é injetado como TradingVueLib
+// ═══════════════ Imports ═══════════════
 const { DataCube } = window.TradingVueLib || window.TradingVue || {}
 
+// ═══════════════ App ═══════════════
 new Vue({
     el: '#app',
     data: {
-        chart: new DataCube({
-            chart: { type: 'Candles', tf: '1m', data: [] },
-            onchart: [], offchart: []
-        }),
-        ohlcvBase: [], // Dados originais de 1m (backup para agregação de timeframes)
+        chart: {},            // DataCube criado após receber histórico
+        ohlcvBase: [],        // Backup 1m para agregação
+        historyBuffer: [],    // Buffer para histórico antes do DC criar
+        historyReady: false,  // true quando DC criado com dados
         indexBased: false,
-
         currentTimeframe: 1,
         availableTfs: [1, 5, 15, 60, 240, 1440],
         width: window.innerWidth,
-        height: window.innerHeight - 50, // Compensação para a toolbar
+        height: window.innerHeight - 50,
         ws: null,
         connectionStatus: 'disconnected'
     },
+
     mounted() {
         window.addEventListener('resize', this.onResize)
-
-        // Adiciona overlay vazio (ex: EMA)
-        this.chart.add('onchart', {
-            type: 'Spline',
-            name: 'EMA',
-            data: []
-        })
-
-        // Inicia WebSocket
         this.connectWebSocket()
     },
+
+    beforeDestroy() {
+        window.removeEventListener('resize', this.onResize)
+        if (this.ws) this.ws.close()
+    },
+
     watch: {
-        // Ao trocar o modo de Gaps, forçamos um refresh completo dos dados
         indexBased() {
-            if (this.currentTimeframe !== 1) {
-                const aggregated = this.aggregateCandles(this.ohlcvBase, this.currentTimeframe)
-                this.chart.set('chart.data', aggregated)
+            if (this.historyReady) {
+                const data = this.currentTimeframe === 1
+                    ? this.ohlcvBase.slice()
+                    : this.aggregateCandles(this.ohlcvBase, this.currentTimeframe)
+                this.initDataCube(data, this.currentTimeframe)
             }
         }
     },
-    beforeDestroy() {
-        window.removeEventListener('resize', this.onResize)
-    },
+
     methods: {
+        // ═══════════════ DataCube ═══════════════
+
+        /**
+         * Cria o DataCube com dados.
+         * Segue o padrão oficial: DC criado DEPOIS de ter dados.
+         */
+        initDataCube(candles, tf) {
+            const label = this.tfLabel(tf)
+            this.chart = new DataCube({
+                chart: { type: 'Candles', tf: label, data: candles },
+                onchart: [{
+                    type: 'Spline',
+                    name: 'EMA',
+                    data: []
+                }],
+                offchart: []
+            }, {
+                aggregation: 100,
+                auto_scroll: true,
+                scripts: false
+            })
+
+            // Conecta DataCube ao componente TradingVue
+            // (normalmente feito pelo componente, mas ao recriar precisamos chamar manualmente)
+            this.chart.init_tvjs(this.$refs.tvjs)
+
+            this.historyReady = true
+            window.dc = this.chart
+            window.tv = this.$refs.tvjs
+        },
+
+        // ═══════════════ OHLCV Base ═══════════════
+
+        pushToBase(candle) {
+            const lastIdx = this.ohlcvBase.length - 1
+            if (lastIdx >= 0 && this.ohlcvBase[lastIdx][0] === candle[0]) {
+                this.ohlcvBase[lastIdx] = candle
+            } else {
+                this.ohlcvBase.push(candle)
+            }
+        },
+
+        // ═══════════════ WebSocket ═══════════════
+
         connectWebSocket() {
             const ws = new WebSocket('ws://127.0.0.1:8765')
             this.ws = ws
@@ -55,17 +95,12 @@ new Vue({
 
             ws.onmessage = (e) => {
                 const msg = JSON.parse(e.data)
-
-                // ===== Formato adam-feed (Streamer) =====
                 if (msg.type) {
                     this.handleFeedMessage(msg)
                     return
                 }
-
-                // ===== Formato legado (ws_server.py local do adam-chart) =====
                 if (msg.candle) {
                     this.handleLegacyCandle(msg.candle)
-                    return
                 }
             }
 
@@ -80,71 +115,57 @@ new Vue({
             }
         },
 
-        /**
-         * Processa mensagens do adam-feed (Streamer).
-         * Usa DataCube.merge() para histórico e DataCube.update() para tempo real.
-         * O DataCube cuida da reatividade/render automaticamente.
-         */
+        // ═══════════════ Feed Handler ═══════════════
+
         handleFeedMessage(msg) {
-            console.log(msg.type)
             switch (msg.type) {
-                case 'history_loaded':
-                // console.log(msg)
                 case 'history_chunk':
-                    if (msg.data && Array.isArray(msg.data)) {
-                        // console.log(`[ADAM-CHART] Recebido ${msg.type}: ${msg.data.length} candles (${msg.current || '?'}/${msg.total || '?'})`)
+                case 'history_loaded':
+                    if (!msg.data || !Array.isArray(msg.data)) return
 
-                        // Converte de {t, o, h, l, c, v} para [t*1000, o, h, l, c, v]
-                        const candles = msg.data.map(item => [
-                            item.t * 1000,  // Timestamp em ms
-                            item.o, item.h, item.l, item.c, item.v
-                        ])
+                    const candles = msg.data.map(item =>
+                        [item.t, item.o, item.h, item.l, item.c, item.v]
+                    )
 
-                        // Salva no backup para agregação
-                        for (const c of candles) {
-                            this.ohlcvBase.push(c)
-                        }
-                        this.ohlcvBase.sort((a, b) => a[0] - b[0])
-
-                        if (this.currentTimeframe === 1) {
-                            // DataCube.merge combina por timestamp automaticamente
-                            this.chart.merge('chart.data', candles)
-                        } else {
-                            const aggregated = this.aggregateCandles(this.ohlcvBase, this.currentTimeframe)
-                            this.chart.set('chart.data', aggregated)
-                        }
+                    // Acumula no buffer e no base
+                    for (const c of candles) {
+                        this.historyBuffer.push(c)
+                        this.pushToBase(c)
                     }
+                    this.ohlcvBase.sort((a, b) => a[0] - b[0])
+
+                    // Cria DataCube na primeira carga
+                    if (!this.historyReady) {
+                        this.historyBuffer.sort((a, b) => a[0] - b[0])
+                        this.initDataCube(this.historyBuffer, this.currentTimeframe)
+                    }
+
+                    // console.log(`[ADAM-CHART] ${msg.type}: ${candles.length} candles (total: ${this.ohlcvBase.length})`)
                     break
 
                 case 'candle_update':
                     if (msg.data && Array.isArray(msg.data)) {
                         for (const item of msg.data) {
-                            const candle = [
-                                item.t * 1000,
-                                item.o, item.h, item.l, item.c, item.v
-                            ]
+                            const candle = [item.t, item.o, item.h, item.l, item.c, item.v]
+                            this.pushToBase(candle)
 
-                            // Atualiza backup local
-                            const lastIdx = this.ohlcvBase.length - 1
-                            if (lastIdx >= 0 && this.ohlcvBase[lastIdx][0] === candle[0]) {
-                                this.ohlcvBase[lastIdx] = candle
+                            if (this.historyReady) {
+                                if (this.currentTimeframe === 1) {
+                                    this.chart.update({ candle: candle })
+                                } else {
+                                    const agg = this.aggregateCandles(this.ohlcvBase, this.currentTimeframe)
+                                    this.chart.update({ candle: agg[agg.length - 1] })
+                                }
                             } else {
-                                this.ohlcvBase.push(candle)
-                            }
-
-                            if (this.currentTimeframe === 1) {
-                                // DataCube.update() sabe atualizar/criar candle automaticamente
-                                this.chart.update({ candle: candle })
-                            } else {
-                                const aggregated = this.aggregateCandles(this.ohlcvBase, this.currentTimeframe)
-                                this.chart.set('chart.data', aggregated)
+                                this.historyBuffer.push(candle)
                             }
                         }
                     }
                     break
 
                 case 'history_complete':
-                    console.log(`[ADAM-CHART] Histórico completo recebido para ${msg.symbol}`)
+                    this.historyBuffer = []
+                    console.log(`[ADAM-CHART] Histórico completo: ${msg.symbol}`)
                     break
 
                 case 'history_not_found':
@@ -156,58 +177,56 @@ new Vue({
             }
         },
 
-        /**
-         * Processa candles no formato legado do ws_server.py local.
-         * Formato: [t, o, h, l, c, v] (timestamp já em ms)
-         */
         handleLegacyCandle(candle) {
-            this.ohlcvBase.push(candle)
-
-            if (this.currentTimeframe === 1) {
-                // DataCube.update() cuida de tudo: insere ou atualiza, render automático
+            this.pushToBase(candle)
+            if (this.historyReady) {
                 this.chart.update({ candle: candle })
-            } else {
-                const aggregated = this.aggregateCandles(this.ohlcvBase, this.currentTimeframe)
-                this.chart.set('chart.data', aggregated)
             }
         },
 
+        // ═══════════════ Navegação ═══════════════
+
         goToEnd() {
             if (this.ohlcvBase.length === 0) return
-
-            const visibleData = this.currentTimeframe === 1
-                ? this.ohlcvBase
-                : this.aggregateCandles(this.ohlcvBase, this.currentTimeframe)
-
-            if (visibleData.length === 0) return
-
-            const lastTimestamp = visibleData[visibleData.length - 1][0]
-            this.chart.goto(lastTimestamp)
-            console.log(`[ADAM-CHART] Navegou para o último candle: ${new Date(lastTimestamp).toLocaleString()}`)
+            this.$refs.tvjs.goto(this.ohlcvBase[this.ohlcvBase.length - 1][0])
         },
+
+        navigateTo(timestamp) {
+            this.$refs.tvjs.goto(timestamp)
+        },
+
+        setRange(t1, t2) {
+            this.$refs.tvjs.setRange(t1, t2)
+        },
+
+        getRange() {
+            return this.$refs.tvjs.getRange()
+        },
+
+        // ═══════════════ Timeframes ═══════════════
 
         onResize() {
             this.width = window.innerWidth
             this.height = window.innerHeight - 50
         },
+
         tfLabel(tf) {
             if (tf < 60) return tf + 'm'
             if (tf < 1440) return (tf / 60) + 'h'
             return (tf / 1440) + 'D'
         },
-        changeTimeframe(tf) {
-            this.currentTimeframe = tf
-            const label = this.tfLabel(tf)
-            this.chart.set('chart.tf', label)
 
-            if (tf === 1) {
-                // Volta para 1m: usa merge para restaurar a base completa
-                this.chart.set('chart.data', this.ohlcvBase.slice())
-            } else {
-                const aggregated = this.aggregateCandles(this.ohlcvBase, tf)
-                this.chart.set('chart.data', aggregated)
-            }
+        changeTimeframe(tf) {
+            if (!this.historyReady) return
+            this.currentTimeframe = tf
+
+            const data = tf === 1
+                ? this.ohlcvBase.slice()
+                : this.aggregateCandles(this.ohlcvBase, tf)
+
+            this.initDataCube(data, tf)
         },
+
         aggregateCandles(data, tfMinutes) {
             if (tfMinutes <= 1) return data.slice()
 

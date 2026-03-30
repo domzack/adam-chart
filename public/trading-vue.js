@@ -18141,6 +18141,16 @@
             var ohlcv = this.data.chart.data;
             var last = ohlcv[ohlcv.length - 1];
             var candle = data['candle'];
+
+            // Array vazio: insere primeiro candle direto
+            if (!last) {
+              if (candle.length < 6) {
+                candle = [data.t || utils.now()].concat(toConsumableArray_default()(candle));
+              }
+              this.tv.$set(ohlcv, ohlcv.length, candle);
+              return false;
+            }
+
             var tf = this.tv.$refs.chart.interval_ms;
             var t_next = last[0] + tf;
             var now = data.t || utils.now();

@@ -22,6 +22,7 @@ Uma solução completa e organizada para visualização de dados financeiros (OH
 adam-chart/
 ├── index.html          # Ponto de entrada (HTML5)
 ├── start.py            # Orquestrador Python (Central de Comando)
+├── datacube-api.md     # Referência completa da API DataCube
 ├── public/             # Recursos Estáticos
 │   ├── main.js         # Lógica Vue & WebSocket
 │   ├── style.css       # Layout e Toolbar
@@ -109,29 +110,50 @@ Exemplo de uso:
 
 ## 📚 Guia do DataCube
 
-O `DataCube` é o cérebro por trás da reatividade do gráfico. Ele gerencia os dados de forma que qualquer alteração reflita instantaneamente na interface sem a necessidade de recarregar a página.
+O `DataCube` é o cérebro por trás da reatividade do gráfico. Ele gerencia os dados de forma que qualquer alteração reflita instantaneamente na interface sem recarregar a página. Documentação completa da API em [`datacube-api.md`](datacube-api.md).
 
-### Principais Métodos Utilizados:
+### Padrão de inicialização (oficial)
 
-1.  **`this.chart.update(msg)`**: 
-    - **Uso**: Recebe um objeto `{ candle: [t, o, h, l, c, v] }`.
-    - **Vantagem**: Tenta atualizar apenas o último candle ou adicionar um novo de forma performática.
-    - **Local**: Veja no `onmessage` dentro de `public/main.js`.
+O DataCube é criado **depois** de receber os dados iniciais via WebSocket:
 
-2.  **`this.chart.set(path, data)`**:
-    - **Uso**: `this.chart.set('chart.data', novosDadosArray)`.
-    - **Vantagem**: Redefine completamente uma ramificação do banco de dados (útil para trocar de timeframe ou carregar histórico pesado).
-    - **Local**: Usado na função `changeTimeframe` em `public/main.js`.
+```js
+// 1. chart inicia como objeto vazio
+data() { return { chart: {} } }
 
-3.  **`this.chart.add(side, overlay)`**:
-    - **Uso**: `this.chart.add('onchart', { type: 'Spline', name: 'EMA', data: [] })`.
-    - **Vantagem**: Permite adicionar dinamicamente indicadores (EMA, Bollinger Bands, etc.) sem afetar os dados principais das velas.
-    - **Local**: Ativado no evento `mounted()` do Vue.
+// 2. WebSocket recebe histórico → acumula no buffer
+// 3. DataCube criado com dados
+this.chart = new DataCube({
+    chart: { type: 'Candles', tf: '1m', data: candles },
+    onchart: [{ type: 'Spline', name: 'EMA', data: [] }],
+    offchart: []
+}, { aggregation: 100, auto_scroll: true })
 
-### Exemplo de manipulação manual:
-Se você quiser injetar um ponto isolado no gráfico via console do navegador, pode fazer:
-```javascript
-app.chart.update({ candle: [Date.now(), 5000, 5010, 4990, 5005, 100] })
+// 4. Conecta ao componente TradingVue
+this.chart.init_tvjs(this.$refs.tvjs)
+```
+
+### Métodos usados no projeto
+
+| Método | Quando usar |
+|---|---|
+| `update({ candle })` | Tempo real — DataCube decide insert/update pelo timestamp |
+| `add(side, overlay)` | Adicionar indicador (EMA, Bollinger, etc) |
+| `get_one(query)` | Ler dados atuais |
+| `set(path, data)` | Trocar timeframe (recria DataCube internamente) |
+
+### Navegação (via componente TradingVue)
+
+```js
+this.$refs.tvjs.goto(timestamp)    // Navega para timestamp
+this.$refs.tvjs.setRange(t1, t2)   // Define range visível
+this.$refs.tvjs.getRange()         // Retorna range atual [t1, t2]
+```
+
+### Debug no console
+
+```js
+window.dc  // DataCube
+window.tv  // Componente TradingVue
 ```
 
 ---

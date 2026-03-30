@@ -6,7 +6,7 @@
     <title>Adam Chart - Gráfico OHLCV + WebSocket</title>
     <link rel="stylesheet" href="public/style.css?v=2">
     <script src="public/vue.js"></script>
-    <script src="public/trading-vue.js"></script>
+    <script src="public/trading-vue.js?v=2"></script>
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
 </head>
@@ -28,7 +28,7 @@
         </div>
         <div class="chart-container">
             <trading-vue ref="tvjs" :data="chart" :width="width" :height="height" :color-back="'#111'"
-                :title-txt="'Adam-Chart'" :index-based="indexBased"></trading-vue>
+                :title-txt="'Adam-Chart'" :index-based="indexBased" :timezone="-3"></trading-vue>
         </div>
     </div>
 
