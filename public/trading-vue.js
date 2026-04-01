@@ -17638,7 +17638,7 @@
         }, {
           key: "build_tool",
           value: function build_tool(grid_id, type) {
-            var list = this.data.tools;
+            var list = this.data.tools || [];
             type = type || this.data.tool;
             var proto = list.find(function (x) {
               return x.type === type;
@@ -17723,13 +17723,17 @@
           key: "add_trash_icon",
           value: function add_trash_icon() {
             var type = 'System:Remove';
+            var tools = this.data.tools || [];
 
-            if (this.data.tools.find(function (x) {
+            if (tools.find(function (x) {
               return x.type === type;
             })) {
               return;
             }
 
+            if (!this.data.tools) {
+              this.tv.$set(this.data, 'tools', []);
+            }
             this.data.tools.push({
               type: type,
               icon: icons['trash.png']
@@ -17740,7 +17744,8 @@
           value: function remove_trash_icon() {
             // TODO: Does not call Toolbar render (distr version)
             var type = 'System:Remove';
-            utils.overwrite(this.data.tools, this.data.tools.filter(function (x) {
+            var tools = this.data.tools || [];
+            utils.overwrite(this.data.tools, tools.filter(function (x) {
               return x.type !== type;
             }));
           } // Set overlay data from the web-worker

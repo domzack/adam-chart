@@ -63,8 +63,10 @@ new Vue({
             })
 
             // Conecta DataCube ao componente TradingVue
-            // (normalmente feito pelo componente, mas ao recriar precisamos chamar manualmente)
             this.chart.init_tvjs(this.$refs.tvjs)
+
+            // ═══════ Lazy loading ao rolar para trás ═══════
+            this.chart.onrange(this.onRangeLoad)
 
             this.historyReady = true
             window.dc = this.chart
@@ -123,24 +125,28 @@ new Vue({
                 case 'history_loaded':
                     if (!msg.data || !Array.isArray(msg.data)) return
 
-                    const candles = msg.data.map(item =>
-                        [item.t, item.o, item.h, item.l, item.c, item.v]
-                    )
-
-                    // Acumula no buffer e no base
-                    for (const c of candles) {
-                        this.historyBuffer.push(c)
-                        this.pushToBase(c)
+                    for (const item of msg.data) {
+                        this.historyBuffer.push([item.t, item.o, item.h, item.l, item.c, item.v])
+                        this.pushToBase([item.t, item.o, item.h, item.l, item.c, item.v])
                     }
-                    this.ohlcvBase.sort((a, b) => a[0] - b[0])
+                    console.log(`[ADAM-CHART] ${msg.type}: +${msg.data.length} (buffer: ${this.historyBuffer.length})`)
 
-                    // Cria DataCube na primeira carga
-                    if (!this.historyReady) {
+                    // Último chunk? Cria DataCube
+                    if (msg.current && msg.total && msg.current >= msg.total) {
+                        this.ohlcvBase.sort((a, b) => a[0] - b[0])
                         this.historyBuffer.sort((a, b) => a[0] - b[0])
                         this.initDataCube(this.historyBuffer, this.currentTimeframe)
+                        this.historyBuffer = []
+                        console.log(`[ADAM-CHART] Histórico completo: ${this.ohlcvBase.length} candles`)
                     }
+                    break
 
-                    // console.log(`[ADAM-CHART] ${msg.type}: ${candles.length} candles (total: ${this.ohlcvBase.length})`)
+                case 'history_complete':
+                    this.ohlcvBase.sort((a, b) => a[0] - b[0])
+                    this.historyBuffer.sort((a, b) => a[0] - b[0])
+                    this.initDataCube(this.historyBuffer, this.currentTimeframe)
+                    this.historyBuffer = []
+                    console.log(`[ADAM-CHART] Histórico completo: ${this.ohlcvBase.length} candles carregados`)
                     break
 
                 case 'candle_update':
@@ -172,6 +178,10 @@ new Vue({
                     console.log(`[ADAM-CHART] ${msg.message}`)
                     break
 
+                case 'range_response':
+                    this.handleRangeResponse(msg)
+                    break
+
                 default:
                     console.log(`[ADAM-CHART] Mensagem desconhecida: ${msg.type}`)
             }
@@ -181,6 +191,80 @@ new Vue({
             this.pushToBase(candle)
             if (this.historyReady) {
                 this.chart.update({ candle: candle })
+            }
+        },
+
+        // ═══════════════ Lazy Loading (onrange) ═══════════════
+
+        /**
+         * Chamado pelo DataCube quando o usuário rola o gráfico
+         * para uma região sem dados carregados.
+         *
+         * @param {Array} range - [start, end] em timestamp (ms)
+         * @param {string} tf - timeframe label (ex: "1m")
+         * @param {Function} dataCallback - chamar com os dados para fazer merge automático
+         */
+        onRangeLoad(range, tf, dataCallback) {
+            if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+                console.warn('[ADAM-CHART] WebSocket não conectado, impossível carregar mais dados')
+                return
+            }
+
+            const data = this.chart.get_one('chart.data')
+            if (!data || data.length === 0) return
+
+            const earliestTs = data[0][0]
+            const latestTs = data[data.length - 1][0]
+
+            // Usuário rolou para trás — pedir dados mais antigos
+            if (range[0] < earliestTs) {
+                console.log(`[ADAM-CHART] onrange: pedindo histórico antes de ${new Date(earliestTs).toISOString()}`)
+                this._pendingRangeCallback = dataCallback
+                this.ws.send(JSON.stringify({
+                    type: 'request_range',
+                    before: earliestTs,
+                    after: range[0],
+                    timeframe: this.currentTimeframe
+                }))
+            }
+            // Usuário rolou para frente além dos dados (raro, mas possível)
+            else if (range[1] > latestTs) {
+                console.log(`[ADAM-CHART] onrange: pedindo dados depois de ${new Date(latestTs).toISOString()}`)
+                this._pendingRangeCallback = dataCallback
+                this.ws.send(JSON.stringify({
+                    type: 'request_range',
+                    before: range[1],
+                    after: latestTs,
+                    timeframe: this.currentTimeframe
+                }))
+            }
+        },
+
+        /**
+         * Processa resposta do backend ao request_range.
+         * Faz merge no ohlcvBase e chama dataCallback para o DataCube.
+         */
+        handleRangeResponse(msg) {
+            if (!msg.data || !Array.isArray(msg.data) || msg.data.length === 0) {
+                console.log('[ADAM-CHART] request_range: sem dados para o range solicitado')
+                this._pendingRangeCallback = null
+                return
+            }
+
+            const candles = msg.data.map(d => [d.t, d.o, d.h, d.l, d.c, d.v])
+
+            // Atualiza ohlcvBase com os novos dados
+            for (const c of candles) {
+                this.pushToBase(c)
+            }
+            this.ohlcvBase.sort((a, b) => a[0] - b[0])
+
+            console.log(`[ADAM-CHART] request_range: +${candles.length} candles merged (base: ${this.ohlcvBase.length})`)
+
+            // Passa dados ao DataCube — ele faz o merge automaticamente
+            if (this._pendingRangeCallback) {
+                this._pendingRangeCallback(candles)
+                this._pendingRangeCallback = null
             }
         },
 
